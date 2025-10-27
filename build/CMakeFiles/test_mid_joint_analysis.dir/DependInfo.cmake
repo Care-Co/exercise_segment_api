@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/nojuntae/Documents/GitHub/Carenco-nohjuntae-1/exercise_segment_api/test_mid_joint_analysis.c" "CMakeFiles/test_mid_joint_analysis.dir/test_mid_joint_analysis.c.o" "gcc" "CMakeFiles/test_mid_joint_analysis.dir/test_mid_joint_analysis.c.o.d"
+  "/Users/nojuntae/exercise_segment_api/test_mid_joint_analysis.c" "CMakeFiles/test_mid_joint_analysis.dir/test_mid_joint_analysis.c.o" "gcc" "CMakeFiles/test_mid_joint_analysis.dir/test_mid_joint_analysis.c.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

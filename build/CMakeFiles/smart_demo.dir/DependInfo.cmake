@@ -8,7 +8,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/Users/nojuntae/Documents/GitHub/Carenco-nohjuntae-1/exercise_segment_api/examples/smart_demo.c" "CMakeFiles/smart_demo.dir/examples/smart_demo.c.o" "gcc" "CMakeFiles/smart_demo.dir/examples/smart_demo.c.o.d"
+  "/Users/nojuntae/exercise_segment_api/examples/smart_demo.c" "CMakeFiles/smart_demo.dir/examples/smart_demo.c.o" "gcc" "CMakeFiles/smart_demo.dir/examples/smart_demo.c.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

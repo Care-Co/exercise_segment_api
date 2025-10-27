@@ -90,9 +90,9 @@ void reset_calibration(void);
  * @param to_joint 끝 관절
  * @return 관절 간 거리 (실패시 -1.0f)
  */
-float calculate_joint_distance(const PoseData *pose, 
-                              PoseLandmarkType from_joint, 
-                              PoseLandmarkType to_joint);
+float calculate_joint_distance(const PoseData *pose,
+                               PoseLandmarkType from_joint,
+                               PoseLandmarkType to_joint);
 
 /**
  * @brief 관절별 길이 켈리브레이션 수행
@@ -101,7 +101,7 @@ float calculate_joint_distance(const PoseData *pose,
  * @return SEGMENT_OK 성공, 음수 에러 코드
  */
 int segment_calibrate_joint_lengths(const PoseData *base_pose,
-                                   CalibrationData *out_calibration);
+                                    CalibrationData *out_calibration);
 
 /**
  * @brief 관절별 길이 켈리브레이션 적용
@@ -111,8 +111,8 @@ int segment_calibrate_joint_lengths(const PoseData *base_pose,
  * @return SEGMENT_OK 성공, 음수 에러 코드
  */
 int apply_joint_length_calibration(const PoseData *original_pose,
-                                  const CalibrationData *calibration,
-                                  PoseData *calibrated_pose);
+                                   const CalibrationData *calibration,
+                                   PoseData *calibrated_pose);
 
 /**
  * @brief 관절 연결 관계 초기화
@@ -126,12 +126,43 @@ int initialize_joint_connections(void);
  */
 void print_joint_lengths(const CalibrationData *calibration);
 
+/**
+ * @brief 공통 캘리브레이션 로직 (내부 함수)
+ * @param base_pose 사용자의 기본 포즈 데이터
+ * @param out_calibration 계산된 캘리브레이션 결과를 저장할 구조체
+ * @param calibration_type 캘리브레이션 타입 ("기록자" 또는 "사용자")
+ * @return SEGMENT_OK 성공, 음수 에러 코드
+ */
+int segment_calibrate_common(const PoseData *base_pose,
+                             CalibrationData *out_calibration,
+                             const char *calibration_type);
+
+/**
+ * @brief 목표 포즈를 사용자 신체 비율에 맞게 조정
+ * @param target_pose 원본 목표 포즈
+ * @param calibration 사용자 캘리브레이션 데이터
+ * @param adjusted_pose 조정된 목표 포즈를 저장할 구조체
+ * @return SEGMENT_OK 성공, 음수 에러 코드
+ */
+int smart_pose_fit(const PoseData *target_pose,
+                   const CalibrationData *calibration, PoseData *adjusted_pose);
+
+// 캘리브레이션 상수 정의
+#define CALIBRATION_IDEAL_SHOULDER_WIDTH                                       \
+  322.78f // 이상적 어깨 너비 (실제 데이터 기반)
+#define CALIBRATION_MIN_CONFIDENCE 0.3f // 최소 신뢰도 임계값 (더 엄격한 기준)
+#define CALIBRATION_MIN_SHOULDER_WIDTH 50.0f  // 최소 어깨 너비
+#define CALIBRATION_MAX_SHOULDER_WIDTH 600.0f // 최대 어깨 너비
+#define CALIBRATION_MIN_SCALE_FACTOR 0.3f     // 최소 스케일 팩터
+#define CALIBRATION_MAX_SCALE_FACTOR 3.0f     // 최대 스케일 팩터
+#define CALIBRATION_DEFAULT_QUALITY 0.95f // 기본 캘리브레이션 품질
+
 // 전역 변수 extern 선언
 extern CalibrationData g_recorder_calibration; // A(기록자) 캘리브레이션 데이터
 extern bool g_recorder_calibrated; // A(기록자) 캘리브레이션 완료 플래그
 extern CalibrationData g_user_calibration; // B(사용자) 캘리브레이션 데이터
 extern bool g_user_calibrated; // B(사용자) 캘리브레이션 완료 플래그
-extern PoseData g_ideal_base_pose; // 이상적 기본 포즈
+extern PoseData g_ideal_base_pose;              // 이상적 기본 포즈
 extern JointConnection g_joint_connections[20]; // 관절 연결 관계
 
 #ifdef __cplusplus

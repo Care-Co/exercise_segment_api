@@ -1,2 +1,2 @@
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar qc libexercise_segment_static.a CMakeFiles/exercise_segment_static.dir/src/segment_core.c.o CMakeFiles/exercise_segment_static.dir/src/calibration.c.o CMakeFiles/exercise_segment_static.dir/src/pose_analysis.c.o CMakeFiles/exercise_segment_static.dir/src/math_utils.c.o
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib libexercise_segment_static.a
+/usr/bin/ar qc libexercise_segment_static.a CMakeFiles/exercise_segment_static.dir/src/segment_core.c.o CMakeFiles/exercise_segment_static.dir/src/calibration.c.o CMakeFiles/exercise_segment_static.dir/src/pose_analysis.c.o CMakeFiles/exercise_segment_static.dir/src/math_utils.c.o
+/usr/bin/ranlib libexercise_segment_static.a

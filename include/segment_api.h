@@ -13,8 +13,8 @@
 #ifndef SEGMENT_API_H
 #define SEGMENT_API_H
 
-#include "segment_types.h"
 #include "pose_analysis.h"
+#include "segment_types.h"
 
 #ifdef __cplusplus
 extern "C" {
