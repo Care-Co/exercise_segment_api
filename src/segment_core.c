@@ -1129,29 +1129,13 @@ int segment_load_all_segments(const char *json_file_path) {
     return result;
   }
 
-  // 사용자 체형에 맞게 변환된 포즈 배열 생성
-  g_user_segments = malloc(pose_count * sizeof(PoseData));
-  if (!g_user_segments) {
-    printf("❌ 사용자 세그먼트 배열 메모리 할당 실패\n");
-    free(ideal_poses);
-    return SEGMENT_ERROR_MEMORY_ALLOCATION;
-  }
+  // 이상적 포즈를 그대로 저장 (전체 스케일링 제거, 개별 관절 조정은
+  // smart_pose_fit에서 수행)
+  g_user_segments =
+      ideal_poses; // ideal_poses를 직접 사용 (메모리 해제하지 않음)
+  ideal_poses = NULL; // 소유권 이전, free하지 않도록 NULL 설정
 
-  // 각 포즈를 사용자 체형에 맞게 변환
-  printf("STEP 3: 사용자 체형에 맞게 조정 중...\n");
-  for (int i = 0; i < pose_count; i++) {
-    result = apply_calibration_to_pose(&ideal_poses[i], &g_user_calibration,
-                                       &g_user_segments[i]);
-    if (result != SEGMENT_OK) {
-      printf("❌ 포즈 %d 변환 실패: 에러 코드 %d\n", i, result);
-      free(ideal_poses);
-      free(g_user_segments);
-      g_user_segments = NULL;
-      return result;
-    }
-  }
-
-  free(ideal_poses);
+  printf("STEP 3: 이상적 포즈 저장 완료 (개별 관절 조정은 분석 시 수행)\n");
 
   g_total_segment_count = pose_count;
   g_all_segments_loaded = true;
@@ -1536,17 +1520,14 @@ int segment_analyze_smart(const PoseData *current_pose, ScaleMode scale_mode,
 
   // 8-1. 스마트 종료 포즈 조정
 
-  // 운동 모드일 때만 개별 관절 비율 조정 적용 (전체 스케일링 전에!)
-  if (scale_mode == SCALE_MODE_EXERCISE && g_user_calibrated &&
-      g_user_calibration.joint_lengths.count > 0) {
+  // 캘리브레이션이 있으면 모든 모드에서 개별 관절 비율 조정 적용 (전체 스케일링
+  // 전에!)
+  if (g_user_calibrated && g_user_calibration.joint_lengths.count > 0) {
     PoseData proportion_adjusted_pose;
     int adjust_result = smart_pose_fit(
         out_smart_target_pose, &g_user_calibration, &proportion_adjusted_pose);
     if (adjust_result == SEGMENT_OK) {
       *out_smart_target_pose = proportion_adjusted_pose;
-      printf("EXERCISE MODE: 개별 관절 비율 조정 완료 (스케일링 전)\n");
-    } else {
-      printf("EXERCISE MODE: 개별 관절 비율 조정 실패, 전체 스케일만 적용\n");
     }
   }
 
@@ -1697,156 +1678,6 @@ int segment_analyze_smart(const PoseData *current_pose, ScaleMode scale_mode,
   // 교정 벡터 계산 (스마트 목표 포즈 기준)
   calculate_correction_vectors(current_pose, out_smart_target_pose, NULL, 0,
                                out_corrections);
-
-  // 3초마다 상세 관절 비교 로그 출력 (smart 함수용)
-  static time_t last_body_log_time = 0;
-  time_t current_time = time(NULL);
-  if (current_time - last_body_log_time >= 3) {
-    last_body_log_time = current_time;
-
-    printf("\n🔍 실시간 vs 목표 포즈 상세 비교 (3초마다)\n");
-    printf("===============================================\n");
-
-    // 주요 관절들의 위치와 거리 비교
-    const char *joint_names[] = {"좌어깨",   "좌팔꿈치", "좌손목", "우어깨",
-                                 "우팔꿈치", "우손목",   "좌골반", "좌무릎",
-                                 "좌발목",   "우골반",   "우무릎", "우발목"};
-
-    PoseLandmarkType joint_landmarks[] = {
-        POSE_LANDMARK_LEFT_SHOULDER, POSE_LANDMARK_LEFT_ELBOW,
-        POSE_LANDMARK_LEFT_WRIST,    POSE_LANDMARK_RIGHT_SHOULDER,
-        POSE_LANDMARK_RIGHT_ELBOW,   POSE_LANDMARK_RIGHT_WRIST,
-        POSE_LANDMARK_LEFT_HIP,      POSE_LANDMARK_LEFT_KNEE,
-        POSE_LANDMARK_LEFT_ANKLE,    POSE_LANDMARK_RIGHT_HIP,
-        POSE_LANDMARK_RIGHT_KNEE,    POSE_LANDMARK_RIGHT_ANKLE};
-
-    // 관절 위치 비교
-    printf("📍 관절 위치 비교:\n");
-    for (int i = 0; i < 12; i++) {
-      PoseLandmarkType landmark = joint_landmarks[i];
-      Point3D curr_pos = current_pose->landmarks[landmark].position;
-      Point3D target_pos = out_smart_target_pose->landmarks[landmark].position;
-
-      printf("  %s: 현재(%.0f,%.0f,%.0f) vs 목표(%.0f,%.0f,%.0f) "
-             "차이(%.0f,%.0f,%.0f)\n",
-             joint_names[i], curr_pos.x, curr_pos.y, curr_pos.z, target_pos.x,
-             target_pos.y, target_pos.z, target_pos.x - curr_pos.x,
-             target_pos.y - curr_pos.y, target_pos.z - curr_pos.z);
-    }
-
-    // 관절 간 거리 비교
-    printf("\n📏 관절 간 거리 비교:\n");
-
-    // 팔 길이 비교
-    float curr_left_upper_arm = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_LEFT_SHOULDER, POSE_LANDMARK_LEFT_ELBOW);
-    float curr_left_forearm = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_LEFT_ELBOW, POSE_LANDMARK_LEFT_WRIST);
-    float curr_right_upper_arm = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_RIGHT_SHOULDER, POSE_LANDMARK_RIGHT_ELBOW);
-    float curr_right_forearm = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_RIGHT_ELBOW, POSE_LANDMARK_RIGHT_WRIST);
-
-    float target_left_upper_arm = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_LEFT_SHOULDER,
-        POSE_LANDMARK_LEFT_ELBOW);
-    float target_left_forearm = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_LEFT_ELBOW,
-        POSE_LANDMARK_LEFT_WRIST);
-    float target_right_upper_arm = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_RIGHT_SHOULDER,
-        POSE_LANDMARK_RIGHT_ELBOW);
-    float target_right_forearm = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_RIGHT_ELBOW,
-        POSE_LANDMARK_RIGHT_WRIST);
-
-    printf("  🦾 팔 길이:\n");
-    printf("    좌상완: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_left_upper_arm, target_left_upper_arm,
-           target_left_upper_arm - curr_left_upper_arm);
-    printf("    좌전완: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_left_forearm, target_left_forearm,
-           target_left_forearm - curr_left_forearm);
-    printf("    우상완: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_right_upper_arm, target_right_upper_arm,
-           target_right_upper_arm - curr_right_upper_arm);
-    printf("    우전완: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_right_forearm, target_right_forearm,
-           target_right_forearm - curr_right_forearm);
-
-    // 다리 길이 비교
-    float curr_left_thigh = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_LEFT_HIP, POSE_LANDMARK_LEFT_KNEE);
-    float curr_left_shin = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_LEFT_KNEE, POSE_LANDMARK_LEFT_ANKLE);
-    float curr_right_thigh = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_RIGHT_HIP, POSE_LANDMARK_RIGHT_KNEE);
-    float curr_right_shin = calculate_joint_distance(
-        current_pose, POSE_LANDMARK_RIGHT_KNEE, POSE_LANDMARK_RIGHT_ANKLE);
-
-    float target_left_thigh = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_LEFT_HIP, POSE_LANDMARK_LEFT_KNEE);
-    float target_left_shin =
-        calculate_joint_distance(out_smart_target_pose, POSE_LANDMARK_LEFT_KNEE,
-                                 POSE_LANDMARK_LEFT_ANKLE);
-    float target_right_thigh =
-        calculate_joint_distance(out_smart_target_pose, POSE_LANDMARK_RIGHT_HIP,
-                                 POSE_LANDMARK_RIGHT_KNEE);
-    float target_right_shin = calculate_joint_distance(
-        out_smart_target_pose, POSE_LANDMARK_RIGHT_KNEE,
-        POSE_LANDMARK_RIGHT_ANKLE);
-
-    printf("  🦵 다리 길이:\n");
-    printf("    좌대퇴: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_left_thigh, target_left_thigh,
-           target_left_thigh - curr_left_thigh);
-    printf("    좌정강: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n", curr_left_shin,
-           target_left_shin, target_left_shin - curr_left_shin);
-    printf("    우대퇴: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_right_thigh, target_right_thigh,
-           target_right_thigh - curr_right_thigh);
-    printf("    우정강: 현재 %.1f vs 목표 %.1f (차이: %+.1f)\n",
-           curr_right_shin, target_right_shin,
-           target_right_shin - curr_right_shin);
-
-    // 전체 길이 비교
-    float curr_left_leg_total = curr_left_thigh + curr_left_shin;
-    float curr_right_leg_total = curr_right_thigh + curr_right_shin;
-    float curr_left_arm_total = curr_left_upper_arm + curr_left_forearm;
-    float curr_right_arm_total = curr_right_upper_arm + curr_right_forearm;
-
-    float target_left_leg_total = target_left_thigh + target_left_shin;
-    float target_right_leg_total = target_right_thigh + target_right_shin;
-    float target_left_arm_total = target_left_upper_arm + target_left_forearm;
-    float target_right_arm_total =
-        target_right_upper_arm + target_right_forearm;
-
-    printf("\n📊 전체 길이 비교:\n");
-    printf("  좌다리전체: 현재 %.1f vs 목표 %.1f (차이: %+.1f, 비율: %.2f)\n",
-           curr_left_leg_total, target_left_leg_total,
-           target_left_leg_total - curr_left_leg_total,
-           curr_left_leg_total > 0 ? target_left_leg_total / curr_left_leg_total
-                                   : 0);
-    printf("  우다리전체: 현재 %.1f vs 목표 %.1f (차이: %+.1f, 비율: %.2f)\n",
-           curr_right_leg_total, target_right_leg_total,
-           target_right_leg_total - curr_right_leg_total,
-           curr_right_leg_total > 0
-               ? target_right_leg_total / curr_right_leg_total
-               : 0);
-    printf("  좌팔전체: 현재 %.1f vs 목표 %.1f (차이: %+.1f, 비율: %.2f)\n",
-           curr_left_arm_total, target_left_arm_total,
-           target_left_arm_total - curr_left_arm_total,
-           curr_left_arm_total > 0 ? target_left_arm_total / curr_left_arm_total
-                                   : 0);
-    printf("  우팔전체: 현재 %.1f vs 목표 %.1f (차이: %+.1f, 비율: %.2f)\n",
-           curr_right_arm_total, target_right_arm_total,
-           target_right_arm_total - curr_right_arm_total,
-           curr_right_arm_total > 0
-               ? target_right_arm_total / curr_right_arm_total
-               : 0);
-
-    printf("===============================================\n");
-  }
 
   *out_progress = progress;
   *out_is_complete = completed;

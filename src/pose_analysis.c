@@ -5,11 +5,10 @@
  * @version 2.0.0
  */
 
-#include "pose_analysis.h"
-#include "math_utils.h"
+#include "../include/pose_analysis.h"
+#include "../include/math_utils.h"
 #include <math.h>
 #include <stdio.h>
-#include <string.h>
 
 // 최소 신뢰도 임계값
 #define MIN_CONFIDENCE_THRESHOLD 0.5f
@@ -106,9 +105,15 @@ float calculate_segment_progress(const PoseData *current_pose,
         end_pose->landmarks[joint].position.y - end_hip_center.y,
         end_pose->landmarks[joint].position.z - end_hip_center.z};
 
-    // 거리 계산
-    float start_to_end = distance_3d(&start_relative, &end_relative);
-    float current_to_end = distance_3d(&current_relative, &end_relative);
+    // 거리 계산 (2D 거리만 사용 - Z값 제외)
+    float start_to_end = sqrtf((end_relative.x - start_relative.x) *
+                                   (end_relative.x - start_relative.x) +
+                               (end_relative.y - start_relative.y) *
+                                   (end_relative.y - start_relative.y));
+    float current_to_end = sqrtf((end_relative.x - current_relative.x) *
+                                     (end_relative.x - current_relative.x) +
+                                 (end_relative.y - current_relative.y) *
+                                     (end_relative.y - current_relative.y));
 
     float ratio;
     float weight;
@@ -117,9 +122,7 @@ float calculate_segment_progress(const PoseData *current_pose,
       // 움직이는 관절: 목표에 얼마나 가까워졌는지 계산
       ratio = 1.0f - (current_to_end / start_to_end);
       ratio = fmaxf(0.0f, ratio); // 음수 방지
-
-      // 진행도 점수를 더욱 관대하게 (300% 보너스)
-      ratio = fminf(1.0f, ratio * 3.0f);
+      // 보너스 제거 - 실제 진행도만 사용
 
       // 가중치 = 움직인 거리 (많이 움직인 관절이 더 중요)
       weight = start_to_end;
@@ -156,8 +159,7 @@ float calculate_segment_progress(const PoseData *current_pose,
   // 최종 진행도 = 주요 관절 진행도(80%) + 비주요 관절 진행도(20%)
   float final_progress = main_joint_progress + non_main_progress;
 
-  // 진행도에 30% 추가 (최대 1.0을 초과하지 않도록 제한)
-  final_progress = final_progress * 1.3f;
+  // 보너스 제거 - 실제 진행도만 사용
 
   return fmaxf(0.0f, fminf(1.0f, final_progress));
 }
@@ -217,7 +219,10 @@ bool is_segment_completed(const PoseData *current_pose,
         end_pose->landmarks[joint].position.y - target_hip_center.y,
         end_pose->landmarks[joint].position.z - target_hip_center.z};
 
-    float distance = distance_3d(&current_relative, &target_relative);
+    // 거리 계산 (2D 거리만 사용 - Z값 제외)
+    float dx = target_relative.x - current_relative.x;
+    float dy = target_relative.y - current_relative.y;
+    float distance = sqrtf(dx * dx + dy * dy);
     total_distance += distance;
     joint_count++;
   }
@@ -286,7 +291,10 @@ float segment_calculate_similarity(const PoseData *current_pose,
         target_pose->landmarks[joint].position.y - target_hip_center.y,
         target_pose->landmarks[joint].position.z - target_hip_center.z};
 
-    float distance = distance_3d(&current_relative, &target_relative);
+    // 거리 계산 (2D 거리만 사용 - Z값 제외)
+    float dx = target_relative.x - current_relative.x;
+    float dy = target_relative.y - current_relative.y;
+    float distance = sqrtf(dx * dx + dy * dy);
     total_distance += distance;
     joint_count++;
   }
@@ -298,8 +306,8 @@ float segment_calculate_similarity(const PoseData *current_pose,
   // 3. 평균 거리를 유사도로 변환
   float avg_distance = total_distance / joint_count;
 
-  // 거리 → 유사도 (500px 기준, 극단적으로 관대)
-  float similarity = fmaxf(0.0f, 1.0f - (avg_distance / 500.0f));
+  // 거리 → 유사도 (300px 기준, 더 엄격하게)
+  float similarity = fmaxf(0.0f, 1.0f - (avg_distance / 300.0f));
 
   return similarity;
 }
@@ -451,7 +459,10 @@ int analyze_exercise_joints(const PoseData *start_pose,
         end_pose->landmarks[joint].position.y - end_hip_center.y,
         end_pose->landmarks[joint].position.z - end_hip_center.z};
 
-    float distance = distance_3d(&start_relative, &end_relative);
+    // 거리 계산 (2D 거리만 사용 - Z값 제외)
+    float dx = end_relative.x - start_relative.x;
+    float dy = end_relative.y - start_relative.y;
+    float distance = sqrtf(dx * dx + dy * dy);
 
     joint_analysis[i].joint = joint;
     joint_analysis[i].movement_distance = distance;
@@ -585,8 +596,15 @@ float calculate_progress_with_analysis(const PoseData *current_pose,
         end_pose->landmarks[analysis.joint].position.y - end_hip_center.y,
         end_pose->landmarks[analysis.joint].position.z - end_hip_center.z};
 
-    float start_to_end = distance_3d(&start_relative, &end_relative);
-    float current_to_end = distance_3d(&current_relative, &end_relative);
+    // 거리 계산 (2D 거리만 사용 - Z값 제외)
+    float start_to_end = sqrtf((end_relative.x - start_relative.x) *
+                                   (end_relative.x - start_relative.x) +
+                               (end_relative.y - start_relative.y) *
+                                   (end_relative.y - start_relative.y));
+    float current_to_end = sqrtf((end_relative.x - current_relative.x) *
+                                     (end_relative.x - current_relative.x) +
+                                 (end_relative.y - current_relative.y) *
+                                     (end_relative.y - current_relative.y));
 
     float ratio;
     float weight = analysis.weight; // 미리 분석된 가중치 사용
@@ -595,7 +613,7 @@ float calculate_progress_with_analysis(const PoseData *current_pose,
       // 중요 관절: 정확한 진행도 계산
       ratio = 1.0f - (current_to_end / start_to_end);
       ratio = fmaxf(0.0f, ratio);
-      ratio = fminf(1.0f, ratio * 3.0f); // 300% 보너스
+      // 보너스 제거 - 실제 진행도만 사용
     } else if (analysis.is_important) {
       // 중요 관절이지만 움직임이 적음
       ratio = 1.0f;
@@ -614,8 +632,7 @@ float calculate_progress_with_analysis(const PoseData *current_pose,
 
   float progress = weighted_progress / total_weight;
 
-  // 진행도에 20% 추가 (최대 1.0을 초과하지 않도록 제한)
-  progress = progress * 1.3f;
+  // 보너스 제거 - 실제 진행도만 사용
 
   return fmaxf(0.0f, fminf(1.0f, progress));
 }
