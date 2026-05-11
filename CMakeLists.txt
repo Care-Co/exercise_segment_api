@@ -22,11 +22,6 @@ if(NOT CMAKE_CROSSCOMPILING)
     endif()
 endif()
 
-# Android 16KB 페이지 크기 지원 (Android 15+ 기기 대응 및 Google Play 요구사항)
-if(ANDROID)
-    add_link_options(-Wl,-z,max-page-size=16384)
-endif()
-
 # iOS에서는 기본적으로 shared 라이브러리 빌드를 비활성화 (정적 라이브러리 사용 권장)
 if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     set(EXERCISE_SEGMENT_BUILD_SHARED_DEFAULT OFF)
@@ -76,6 +71,14 @@ if(TARGET exercise_segment_static)
 endif()
 if(TARGET exercise_segment)
     target_link_libraries(exercise_segment m)
+endif()
+
+# Android 16KB 페이지 크기 지원 (Android 15+ 기기 대응 및 Google Play 요구사항)
+if(ANDROID AND TARGET exercise_segment)
+    target_link_options(exercise_segment PRIVATE
+        "-Wl,-z,max-page-size=16384"
+        "-Wl,-z,common-page-size=16384"
+    )
 endif()
 
 # 설치 설정
