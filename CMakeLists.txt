@@ -74,11 +74,16 @@ if(TARGET exercise_segment)
 endif()
 
 # Android 16KB 페이지 크기 지원 (Android 15+ 기기 대응 및 Google Play 요구사항)
-if(ANDROID AND TARGET exercise_segment)
-    target_link_options(exercise_segment PRIVATE
-        "-Wl,-z,max-page-size=16384"
-        "-Wl,-z,common-page-size=16384"
-    )
+if(CMAKE_SYSTEM_NAME STREQUAL "Android" OR ANDROID)
+    if(TARGET exercise_segment)
+        message(STATUS ">>> [SUCCESS] Entering 16KB Alignment Block")
+        set_target_properties(exercise_segment PROPERTIES 
+            LINK_OPTIONS "LINKER:-z,max-page-size=16384"
+            LINK_FLAGS "-Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384"
+        )
+    else()
+        message(STATUS ">>> [ERROR] Target 'exercise_segment' not found yet!")
+    endif()
 endif()
 
 # 설치 설정
